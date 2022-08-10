@@ -34,7 +34,7 @@
 *****************************************************************************/
 #include "focaltech_core.h"
 #include <linux/input/tp_common.h>
-#if FTS_GESTURE_EN
+
 /******************************************************************************
 * Private constant and macro definitions using #define
 *****************************************************************************/
@@ -697,4 +697,3 @@ int fts_gesture_exit(struct i2c_client *client)
 	FTS_FUNC_EXIT();
 	return 0;
 }
-#endif

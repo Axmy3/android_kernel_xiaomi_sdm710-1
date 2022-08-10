@@ -101,7 +101,6 @@
 #define TOUCH_IN_KEY(x, key_x)              TOUCH_IN_RANGE(x, key_x, FTS_KEY_WIDTH)
 
 #define FTS_LOCKDOWN_INFO_SIZE				8
-#define DRM_ADD_COMPLETE
 
 /*****************************************************************************
 * Private enumerations, structures and unions using typedef
@@ -167,9 +166,7 @@ struct fts_ts_data {
 	  *when fod unlock, release all points to avoid lose point up_action
 	  */
 	bool fod_point_released;
-#ifdef FTS_POWER_SOURCE_CUST_EN
 	bool power_disabled;
-#endif
 	/* multi-touch */
 	struct ts_event *events;
 	u8 *point_buf;
@@ -193,16 +190,12 @@ struct fts_ts_data {
 	struct work_struct suspend_work;
 	struct work_struct resume_work;
 	struct workqueue_struct *event_wq;
-#if FTS_PINCTRL_EN
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pins_active;
 	struct pinctrl_state *pins_suspend;
 	struct pinctrl_state *pins_release;
-#endif
 #ifdef CONFIG_DRM
 	struct notifier_block fb_notif;
-#elif defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend early_suspend;
 #endif
 	struct dentry *debugfs;
 	struct proc_dir_entry *tp_selftest_proc;
@@ -249,7 +242,6 @@ int fts_i2c_init(void);
 int fts_i2c_exit(void);
 
 /* Gesture functions */
-#if FTS_GESTURE_EN
 int fts_gesture_init(struct fts_ts_data *ts_data);
 int fts_gesture_exit(struct i2c_client *client);
 void fts_gesture_recovery(struct i2c_client *client);
@@ -261,43 +253,10 @@ int fts_gesture_reg_write(struct i2c_client *client, u8 mask, bool enable);
 int fts_fod_reg_write(struct i2c_client *client, u8 mask, bool enable);
 void fts_fod_recovery(struct i2c_client *client);
 #endif
-#endif
-
-/* Apk and functions */
-#if FTS_APK_NODE_EN
-int fts_create_apk_debug_channel(struct fts_ts_data *);
-void fts_release_apk_debug_channel(struct fts_ts_data *);
-#endif
 
 /* ADB functions */
-#if FTS_SYSFS_NODE_EN
 int fts_create_sysfs(struct i2c_client *client);
 int fts_remove_sysfs(struct i2c_client *client);
-#endif
-
-/* ESD */
-#if FTS_ESDCHECK_EN
-int fts_esdcheck_init(struct fts_ts_data *ts_data);
-int fts_esdcheck_exit(struct fts_ts_data *ts_data);
-int fts_esdcheck_switch(bool enable);
-int fts_esdcheck_proc_busy(bool proc_debug);
-int fts_esdcheck_set_intr(bool intr);
-int fts_esdcheck_suspend(void);
-int fts_esdcheck_resume(void);
-#endif
-
-/* Production test */
-#if FTS_TEST_EN
-int fts_test_init(struct i2c_client *client);
-int fts_test_exit(struct i2c_client *client);
-#endif
-
-/* Point Report Check*/
-#if FTS_POINT_REPORT_CHECK_EN
-int fts_point_report_check_init(struct fts_ts_data *ts_data);
-int fts_point_report_check_exit(struct fts_ts_data *ts_data);
-void fts_prc_queue_work(struct fts_ts_data *ts_data);
-#endif
 
 /* FW upgrade */
 int fts_upgrade_bin(struct i2c_client *client, char *fw_name, bool force);
