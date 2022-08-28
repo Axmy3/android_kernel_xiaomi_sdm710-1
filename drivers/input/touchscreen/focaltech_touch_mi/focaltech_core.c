@@ -783,11 +783,12 @@ static int fts_read_and_report_foddata(struct fts_ts_data *data)
 				buf[1], buf[2], buf[3], buf[4], buf[9], x, y);
 			if (buf[9] == 0) {
 				mutex_lock(&data->report_mutex);
-				if (!data->fod_finger_skip) {
+				if (!data->fod_finger_skip && data->fod_status && !data->finger_in_fod) {
 					input_report_key(data->input_dev, BTN_INFO, 1);
 					input_sync(data->input_dev);
 					FTS_INFO("Report 0x155 Down for FingerPrint\n");
 					data->overlap_area = 100;
+					data->finger_in_fod = true;
 				}
 				if (data->old_point_id != buf[1]) {
 					if (data->old_point_id == 0xff)
@@ -796,16 +797,15 @@ static int fts_read_and_report_foddata(struct fts_ts_data *data)
 						data->point_id_changed = true;
 					}
 				}
-				data->finger_in_fod = true;
-				if (data->suspended && data->fod_status == 0) {
-					FTS_INFO("Panel off and fod status : %d, don't report touch down event\n", data->fod_status);
-					mutex_unlock(&data->report_mutex);
-					return 0;
-				}
 				if (!data->suspended) {
 					pr_info("FTS:touch is not in suspend state, report x,y value by touch nomal report\n");
 					mutex_unlock(&data->report_mutex);
 					return -EINVAL;
+				}
+				if (!data->fod_status) {
+					FTS_INFO("Panel off but fod_status is false, do not report touch down event\n");
+					mutex_unlock(&data->report_mutex);
+					return 0;
 				}
 
 				if (!data->fod_finger_skip) {
@@ -823,8 +823,10 @@ static int fts_read_and_report_foddata(struct fts_ts_data *data)
 				}
 				mutex_unlock(&data->report_mutex);
 			} else {
-				input_report_key(data->input_dev, BTN_INFO, 0);
-				input_sync(data->input_dev);
+				if (data->finger_in_fod) {
+					input_report_key(data->input_dev, BTN_INFO, 0);
+					input_sync(data->input_dev);
+				}
 				data->finger_in_fod = false;
 				data->fod_finger_skip = false;
 				data->old_point_id = 0xff;
@@ -1726,7 +1728,7 @@ static int fts_ts_probe(struct i2c_client *client, const struct i2c_device_id *i
 	mutex_init(&ts_data->report_mutex);
 #ifdef CONFIG_TOUCHSCREEN_FTS_FOD
 	mutex_init(&ts_data->fod_mutex);
-	ts_data->fod_status = -1;
+	ts_data->fod_status = 0;
 #endif
 
 	ret = fts_input_init(ts_data);
@@ -2024,11 +2026,7 @@ static int fts_ts_suspend(struct device *dev)
 	}
 
 #ifdef CONFIG_TOUCHSCREEN_FTS_FOD
-/* fod status = -1 as default value, means fingerprint is not enabled*
- * fod_status = 100 as all fingers in the system is deleted
- * aod_status != 0 means single tap in aod is supported
- */
-	if (ts_data->aod_status || (ts_data->fod_status != -1 && ts_data->fod_status != 100)) {
+	if (ts_data->aod_status) {
 		ret = fts_fod_reg_write(ts_data->client, FTS_REG_GESTURE_FOD_ON, true);
 		if (ret < 0) {
 			FTS_ERROR("%s fts_fod_reg_write failed, enter sleep mode!\n", __func__);
@@ -2109,6 +2107,7 @@ static int fts_ts_resume(struct device *dev)
 	}
 #ifdef CONFIG_TOUCHSCREEN_FTS_FOD
 	if (fts_data->finger_in_fod) {
+		fts_data->finger_in_fod = false;
 		fts_fod_reg_write(ts_data->client, FTS_REG_GESTURE_FOD_NO_CAL, true);
 	}
 #endif
