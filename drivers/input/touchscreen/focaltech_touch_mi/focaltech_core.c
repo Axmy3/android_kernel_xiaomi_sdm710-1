@@ -783,6 +783,19 @@ static int fts_read_and_report_foddata(struct fts_ts_data *data)
 				buf[1], buf[2], buf[3], buf[4], buf[9], x, y);
 			if (buf[9] == 0) {
 				mutex_lock(&data->report_mutex);
+				if (data->aod_status) {
+					/* Wake-up device from doze mode */
+					input_report_key(data->input_dev, KEY_WAKEUP, 1);
+					input_sync(data->input_dev);
+					input_report_key(data->input_dev, KEY_WAKEUP, 0);
+					input_sync(data->input_dev);
+
+					/* Do not reset during resume */
+					data->finger_in_fod = true;
+
+					mutex_unlock(&data->report_mutex);
+					return 0;
+				}
 				if (!data->fod_finger_skip && data->fod_status && !data->finger_in_fod) {
 					input_report_key(data->input_dev, BTN_INFO, 1);
 					input_sync(data->input_dev);
@@ -1592,13 +1605,19 @@ static int fb_notifier_callback(struct notifier_block *self, unsigned long event
 
 		if (*blank == MSM_DRM_BLANK_UNBLANK) {
 			FTS_INFO("FTS do resume work\n");
+			fts_data->aod_status = 0;
 			queue_work(fts_data->event_wq, &fts_data->resume_work);
 		} else if (*blank == MSM_DRM_BLANK_POWERDOWN || *blank == MSM_DRM_BLANK_LP1 || *blank == MSM_DRM_BLANK_LP2) {
 			FTS_INFO("FTS do suspend work by event %s\n", *blank == MSM_DRM_BLANK_POWERDOWN ? "POWER DOWN" : "LP");
-			if (*blank == MSM_DRM_BLANK_POWERDOWN && fts_data->finger_in_fod) {
-				FTS_INFO("set fod finger skip\n");
-				fts_data->fod_finger_skip = true;
+			if (*blank == MSM_DRM_BLANK_POWERDOWN) {
+				if (fts_data->finger_in_fod) {
+					FTS_INFO("set fod finger skip\n");
+					fts_data->fod_finger_skip = true;
+				}
+			} else {
+				fts_data->aod_status = 1;
 			}
+
 			queue_work(fts_data->event_wq, &fts_data->suspend_work);
 		}
 	}
