@@ -1149,28 +1149,17 @@ static ssize_t double_tap_show(struct kobject *kobj,
 	return sprintf(buf, "%d\n", fts_info->gesture_enabled);
 }
 
-static void fts_switch_mode_work(struct work_struct *work);
-
 static ssize_t double_tap_store(struct kobject *kobj,
                                 struct kobj_attribute *attr, const char *buf,
                                 size_t count)
 {
 	int rc, val;
-	struct fts_mode_switch *ms;
 
 	rc = kstrtoint(buf, 10, &val);
 	if (rc)
-	return -EINVAL;
+		return -EINVAL;
 
-	ms = (struct fts_mode_switch *)kmalloc(sizeof(struct fts_mode_switch), GFP_ATOMIC);
-	if (ms == NULL)
-	return -EINVAL;
-
-	ms->info = fts_info;
-	ms->mode = (unsigned char)!!val;
-	INIT_WORK(&ms->switch_mode_work,
-			fts_switch_mode_work);
-	schedule_work(&ms->switch_mode_work);
+	fts_info->gesture_enabled = !!val;
 
 	return count;
 }
